@@ -57,7 +57,7 @@ def segment_full_image(image_path, model, patch_size=256):
 # -------------------- OVERLAY FUNCTION -------------------- #
 def overlay_segmentation_and_boxes(image, mask):
     """
-    Overlays segmentation mask and bounding boxes on the original image.
+    Overlays segmentation mask and oriented bounding boxes on the original image.
     """
     image_np = np.array(image)
 
@@ -67,9 +67,8 @@ def overlay_segmentation_and_boxes(image, mask):
     else:
         mask_uint8 = mask
 
-    # Contours and bounding boxes
+    # Find contours
     contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    boxes = [cv2.boundingRect(cnt) for cnt in contours]
 
     # Create colored mask
     mask_colored = np.zeros_like(image_np)
@@ -78,12 +77,18 @@ def overlay_segmentation_and_boxes(image, mask):
     alpha = 0.5
     overlayed = cv2.addWeighted(image_np, 1 - alpha, mask_colored, alpha, 0)
 
-    # Draw bounding boxes
-    for x, y, w, h in boxes:
-        cv2.rectangle(overlayed, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Green
+    # Draw oriented bounding boxes
+    for cnt in contours:
+        if cv2.contourArea(cnt) > 10:  # Filter small noise
+            # Get minimum area rectangle (oriented bounding box)
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)
+            box = np.int32(box)  # Use np.int32 instead of np.int0
+            
+            # Draw the oriented bounding box
+            cv2.drawContours(overlayed, [box], 0, (0, 255, 0), 2)  # Green
 
     return overlayed
-
 
 # -------------------- STREAMLIT UI -------------------- #
 def main():
